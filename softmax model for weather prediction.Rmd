@@ -1,0 +1,85 @@
+```{r}
+
+library(nnet)
+library(caret)
+
+# read data
+data <- read.csv("seattle-weather_2.csv")
+
+data <- data[, c("precipitation", "temp_max", "wind", "month", "weather")]
+
+data$weather <- as.factor(data$weather)
+
+```
+
+```{r}
+
+# divide into train_data and test_data
+set.seed(123)
+
+train_index <- createDataPartition(data$weather, p = 0.8, list = FALSE)
+
+train_data <- data[train_index, ]
+test_data  <- data[-train_index, ]
+
+```
+
+```{r}
+
+# standardize train_data
+train_scaled <- scale(train_data[, c("precipitation","temp_max","wind","month")])
+
+# compute the mean and standard deviation
+center_values <- attr(train_scaled, "scaled:center")
+scale_values  <- attr(train_scaled, "scaled:scale")
+
+train_data[, c("precipitation","temp_max","wind","month")] <- train_scaled
+
+# standardize test_data
+test_data[, c("precipitation","temp_max","wind","month")] <- 
+  scale(test_data[, c("precipitation","temp_max","wind","month")],
+        center = center_values,
+        scale  = scale_values)
+
+
+```
+
+
+```{r}
+
+# train softmax model
+model <- multinom(weather ~ precipitation + temp_max + wind + month,
+                  data = train_data)
+
+```
+
+```{r}
+
+# predict weather with test_data
+pred <- predict(model, test_data)
+
+```
+
+
+```{r}
+
+# predict the weather type with conditional probability P(Y=C|X)
+prob <- predict(model, test_data, type = "probs")
+head(prob)
+
+```
+
+```{r}
+
+# calculate accuracy
+accuracy <- mean(pred == test_data$weather)
+print(accuracy)
+
+```
+
+```{r}
+
+# compute confusion matrix
+confusionMatrix(pred, test_data$weather)
+
+```

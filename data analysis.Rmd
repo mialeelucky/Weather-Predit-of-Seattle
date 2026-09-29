@@ -1,0 +1,315 @@
+```{r}
+weather <- read.csv("seattle-weather.csv", stringsAsFactors = FALSE)
+
+```
+
+```{r}
+#convertion des dates  et on appele une colonne par $
+weather$date <- as.Date(weather$date)
+#weather$date 
+```
+
+```{r}
+#on fait les 2 lignes suivantes pour istaller ;e package Corrplot
+#install.packages("corrplot")  
+#library(corrplot)
+
+corrplot(cor_matrix,
+         method = "color",
+         type = "upper",
+         addCoef.col = "black",
+         tl.col = "black")
+
+```
+
+```{r}
+plot(weather$date, weather$temp_max, type = "l",
+     col = "red", lwd = 2,
+     xlab = "Date", ylab = "Temperature (°C)",
+     main = "Daily Maximum and Minimum Temperatures Over Time")
+
+lines(weather$date, weather$temp_min,
+      col = "blue", lwd = 2)
+
+legend("topright",
+       legend = c("Temperature max", "Temperature min"),
+       col = c("red", "blue"),
+       lwd = 2)
+
+```
+
+```{r}
+plot(
+  x = weather$temp_max,
+  y = weather$temp_min,
+  xlab = "Maximum Temperature (°C)",
+  ylab = "Minimum Temperature (°C)",
+  main = "Correlation between Maximum & Minimum Temperature",
+  col = rgb(1, 0.6, 0, alpha = 0.6),  # 半透明橙色
+  pch = 1,                             # 空心圆
+  cex = 0.8  
+)
+
+```
+
+```{r}
+library(ggplot2)
+
+features <- c("temp_max","temp_min","wind","precipitation")
+
+for(f in features){
+  p <- ggplot(weather, aes(x=weather, y=.data[[f]], fill=weather)) +
+    geom_boxplot(alpha=0.7, outlier.alpha=0.3) +
+    theme_minimal(base_size=13) +
+    theme(legend.position="none",
+          plot.title = element_text(face="bold")) +
+    labs(title=paste(f,"by Weather"),
+         x="Weather type",
+         y=f)
+  print(p)
+}
+```
+```{r}
+set.seed(123)          # 为了结果可复现
+n  <- 1000
+m0 <- 0.5
+sd0 <- 1.2
+
+x1 <- rnorm(n, mean = m0, sd = sd0)   # x1,...,xn
+
+m1  <- 1.1
+sd1 <- 1.2
+
+x2 <- rnorm(n, mean = m1, sd = sd1)   # x_{n+1},...,x_{2n}
+
+beta0 <- 0.3
+beta1 <- 1.7
+
+logistic <- function(z) 1 / (1 + exp(-z))
+
+p <- logistic(beta0 + beta1 * x1)     # 每个样本点对应一个概率 p_i
+y <- rbinom(n, size = 1, prob = p)    # y1,...,yn (0/1)
+
+mean(y)          # 1 的比例（大致反映整体正类概率）
+head(data.frame(x = x1, p = p, y = y), 10)
+
+```
+
+```{r}
+par(mfrow=c(1,2))
+
+hist(x1, breaks=40, probability=TRUE,
+     main="Samples of X ~ N(0.5,1.2)",
+     xlab="x", col="lightblue")
+
+hist(x2, breaks=40, probability=TRUE,
+     main="Samples of X' ~ N(1.1,1.2)",
+     xlab="x", col="lightgreen")
+```
+```{r}
+curve(logistic(beta0 + beta1 * x),
+      from=min(x1), to=max(x1),
+      col="red", lwd=2,
+      ylab="P(Y=1|X)", xlab="X",
+      main="Logistic curve and sample probabilities")
+
+# 叠加样本点 (x_i, p_i)
+points(x1, p, col=rgb(0,0,1,0.3), pch=16)
+```
+```{r}
+plot(x1, y,
+     col = ifelse(y==1,"red","blue"),
+     pch=16,
+     xlab="X", ylab="Y",
+     main="Generated binary responses")
+
+legend("topleft",
+       legend=c("Y=1","Y=0"),
+       col=c("red","blue"),
+       pch=16)
+```
+```{r}
+# 已有：x1, x2, n, beta0, beta1
+logistic <- function(z) 1/(1+exp(-z))
+
+p2 <- logistic(beta0 + beta1 * x2)
+y2 <- rbinom(n, size=1, prob=p2)   # y_{n+1},...,y_{2n}
+
+x_all <- c(x1, x2)
+y_all <- c(y,  y2)
+N <- length(x_all)  # = 2n
+
+```
+```{r}
+# ========= Data (assume you already have x1,x2,y and created y2 above) =========
+x_all <- c(x1, x2)
+y_all <- c(y,  y2)
+N <- length(x_all)
+
+logistic <- function(z) 1/(1+exp(-z))
+
+# log-likelihood
+loglik <- function(b0, b1, x, y){
+  z <- b0 + b1 * x
+  p <- logistic(z)
+  eps <- 1e-12
+  sum(y*log(p + eps) + (1-y)*log(1 - p + eps))
+}
+
+# gradient of log-likelihood
+grad_loglik <- function(b0, b1, x, y){
+  z <- b0 + b1 * x
+  p <- logistic(z)
+  g0 <- sum(y - p)
+  g1 <- sum((y - p) * x)
+  c(g0, g1)
+}
+
+# ========= Gradient Ascent =========
+set.seed(1)
+b0 <- 0       # starting point (you can change)
+b1 <- 0
+gamma <- 0.1  # step size (tune it)
+max_iter <- 2000
+tol <- 1e-6
+
+use_normalized_grad <- TRUE  # as suggested by the statement
+
+ll_hist <- numeric(max_iter)
+gn_hist <- numeric(max_iter)
+b_hist  <- matrix(NA, nrow=max_iter, ncol=2)
+
+for (t in 1:max_iter){
+  g <- grad_loglik(b0, b1, x_all, y_all)
+  gn <- sqrt(sum(g^2))
+
+  ll_hist[t] <- loglik(b0, b1, x_all, y_all)
+  gn_hist[t] <- gn
+  b_hist[t,] <- c(b0, b1)
+
+  if (gn < tol) break
+
+  if (use_normalized_grad){
+    g <- g / (gn + 1e-12)
+  }
+
+  # update (gradient ASCENT)
+  b0 <- b0 + gamma * g[1]
+  b1 <- b1 + gamma * g[2]
+}
+
+Tstop <- t
+ll_hist <- ll_hist[1:Tstop]
+gn_hist <- gn_hist[1:Tstop]
+b_hist  <- b_hist[1:Tstop,,drop=FALSE]
+
+cat("Converged in", Tstop, "iterations\n")
+cat("Estimated beta0 =", b0, "\n")
+cat("Estimated beta1 =", b1, "\n")
+```
+```{r}
+par(mfrow=c(1,2))
+
+plot(ll_hist, type="l",
+     xlab="Iteration", ylab="Log-likelihood",
+     main="Log-likelihood vs Iterations")
+
+plot(gn_hist, type="l",
+     xlab="Iteration", ylab="||Gradient||",
+     main="Gradient Norm vs Iterations")
+
+```
+
+
+```{r}
+Pr_m0_hat_model <- mean( logistic(b0 + b1 * x1) )
+Pr_m1_hat_model <- mean( logistic(b0 + b1 * x2) )
+
+Pr_m0_hat_model
+Pr_m1_hat_model
+```
+
+```{r}
+bank <- read.csv("C:/Users/zfdnm/Documents/bank-additional.csv", sep=";")
+
+# 选择需要的变量
+data <- bank[, c("age","job","marital","duration","y")]
+
+# 将分类变量转成 factor
+data$job <- as.factor(data$job)
+data$marital <- as.factor(data$marital)
+data$y <- as.factor(data$y)
+```
+```{r}
+library(caret)
+
+set.seed(123)
+folds <- createFolds(data$y, k=10, list=TRUE)
+```
+```{r}
+library(caret)
+
+# 确保 y 的 levels 是 no/yes，并且顺序固定
+data$y <- factor(data$y, levels = c("no", "yes"))
+
+set.seed(123)
+folds <- createFolds(data$y, k = 10, list = TRUE)
+
+false_pos <- rep(NA_real_, 10)
+false_neg <- rep(NA_real_, 10)
+
+for(i in 1:10){
+
+  test_index <- folds[[i]]
+  test_set  <- data[test_index, ]
+  train_set <- data[-test_index, ]
+
+  model <- glm(y ~ age + job + marital + duration,
+               data = train_set,
+               family = binomial)
+
+  prob <- predict(model, newdata = test_set, type = "response")
+
+  # 分类阈值（0.5 有时会导致全预测 no，可改成 0.3/0.4）
+  pred <- ifelse(prob > 0.5, "yes", "no")
+  pred <- factor(pred, levels = c("no", "yes"))   # ★ 强制 levels 对齐
+  truth <- factor(test_set$y, levels = c("no", "yes"))
+
+  cm <- confusionMatrix(pred, truth, positive = "yes")
+
+  # 安全提取（可能会出现 NA，这是正常的：某折没有某类）
+  tab <- cm$table
+
+  TP <- tab["yes","yes"]
+  FP <- tab["yes","no"]
+  FN <- tab["no","yes"]
+  TN <- tab["no","no"]
+
+# 安全计算（避免除以0）
+false_pos[i] <- ifelse((FP+TN)==0, NA, FP/(FP+TN))
+false_neg[i] <- ifelse((FN+TP)==0, NA, FN/(FN+TP))
+}
+
+false_pos
+false_neg
+
+```
+
+```{r}
+par(mfrow=c(1,2))
+
+plot(false_pos, type="b", pch=16,
+     xlab="Fold", ylab="False Positive Rate",
+     main="FPR across 10 folds", ylim=c(0,1))
+
+plot(false_neg, type="b", pch=16,
+     xlab="Fold", ylab="False Negative Rate",
+     main="FNR across 10 folds", ylim=c(0,1))
+
+```
+
+
+
+
+
+

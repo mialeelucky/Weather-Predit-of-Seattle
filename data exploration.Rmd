@@ -1,0 +1,240 @@
+```{r}
+weather <- read.csv("seattle-weather.csv", stringsAsFactors = FALSE)
+
+head(weather)
+str(weather)
+
+```
+```{r}
+cat("La dimension est :", dim(weather), "\n")
+
+
+
+#donnes les nomes des variable were working with
+cat("les colommes:",colnames(weather),"\n")
+
+# Résumé statistique
+summary(weather)
+
+```
+```{r}
+#convertion des dates  et on appele une colonne par $
+weather$date <- as.Date(weather$date)
+#weather$date 
+```
+```{r}
+#ici we checked les valeurs manquantes par variable
+colSums(is.na(weather))
+
+```
+```{r}
+mean(weather$temp_max)
+mean(weather$temp_min)
+sd(weather$temp_max)#écart-type
+summary(weather$precipitation)
+
+
+```
+```{r}
+weather_2016 <- subset(weather, format(as.Date(date), "%Y") == "2013")
+
+plot(weather_2016$date, weather_2016$precipitation, type = "l",
+     col = "red", xlab = "Date", ylab = "Température max",
+     main = "Évolution de la température maximale à Seattle")
+
+```
+```{r}
+plot(weather$date, weather$temp_min, type = "l",
+     col = "blue", xlab = "Date", ylab = "Température min",
+     main = "Évolution de la température minimale à Seattle")
+
+```
+
+```{r}
+plot(weather$date, weather$temp_max, type = "l",
+     col = "red", lwd = 2,
+     xlab = "Date", ylab = "Température (°C)",
+     main = "Évolution des températures à Seattle")
+
+lines(weather$date, weather$temp_min,
+      col = "blue", lwd = 2)
+
+legend("topright",
+       legend = c("Température max", "Température min"),
+       col = c("red", "blue"),
+       lwd = 2)
+
+```
+```{r}
+hist(weather$precipitation,
+     main = "Distribution des précipitations",
+     xlab = "Précipitations (mm)",
+     col = "skyblue")
+```
+```{r}
+table(weather$weather)
+
+barplot(table(weather$weather),
+        col = "orange",
+        main = "Répartition des types de météo",
+        ylab = "Nombre de jours")
+
+```
+```{r}
+aggregate(temp_max ~ weather, data = weather, mean)
+aggregate(precipitation ~ weather, data = weather, mean)
+
+```
+```{r}
+weather_num <- weather[, c("precipitation", "temp_max", "temp_min", "wind")]
+cor_matrix <- cor(weather_num, use = "complete.obs")
+cor_matrix
+
+```
+```{r}
+heatmap(cor_matrix, symm = TRUE)
+
+```
+```{r}
+#on fait les 2 lignes suivantes pour istaller ;e package Corrplot
+#install.packages("corrplot")  
+#library(corrplot)
+
+corrplot(cor_matrix,
+         method = "color",
+         type = "upper",
+         addCoef.col = "black",
+         tl.col = "black")
+
+```
+```{r}
+weather$month <- format(weather$date, "%m")
+
+boxplot(temp_max ~ month, data = weather,
+        xlab = "Mois", ylab = "Température max",
+        main = "Température maximale par mois")
+
+```
+```{r}
+barplot(table(weather$weather),
+        col = "steelblue",
+        main = "Nombre de jours par type de météo")
+
+```
+```{r}
+plot(weather$wind, weather$temp_min,
+     col = "orange",
+     xlab = "Température max",
+     ylab = "Température min",
+     main = "Relation temp_max / temp_min")
+
+```
+```{r}
+plot(weather$precipitation, weather$temp_max,
+     xlab = "Précipitations",
+     ylab = "Température max",
+     main = "Précipitations vs Température max")
+
+```
+```{r}
+boxplot(temp_max ~ weather, data = weather,
+        col = "lightblue",
+        main = "Température max selon la météo")
+
+```
+```{r}
+hist(weather$temp_max,
+     col = "tomato",
+     main = "Distribution de la température maximale",
+     xlab = "Température max")
+plot(density(weather$temp_max),
+     main = "Densité de la température max")
+
+```
+```{r}
+weather$delta_temp <- weather$temp_max - weather$temp_min
+
+plot(weather$date, weather$delta_temp,
+     type = "l",
+     main = "Amplitude thermique journalière")
+
+
+```
+
+```{r}
+library(ggplot2)
+
+ggplot(weather, aes(x = date, y = weather)) +
+  geom_tile(aes(fill = weather)) +
+  scale_fill_brewer(palette = "Set3") +
+  labs(
+    title = "Weather type distribution over time",
+    x = "Date",
+    y = "Weather type"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+plot(
+  x = weather$temp_max,
+  y = weather$temp_min,
+  xlab = "Maximum Temperature (°C)",
+  ylab = "Minimum Temperature (°C)",
+  main = "Temp_max vs Temp_min",
+  col = rgb(1, 0.6, 0, alpha = 0.6),  # 半透明橙色
+  pch = 1,                             # 空心圆
+  cex = 0.8  
+)
+
+```
+```{r}
+par(mfrow=c(2,2))  # 2×2 排版，一次画四张图
+
+boxplot(temp_max ~ weather,
+        data = weather,
+        col = "orange",
+        main = "Temp_max by Weather",
+        xlab = "Weather type",
+        ylab = "Maximum Temperature (°C)")
+
+boxplot(temp_min ~ weather,
+        data = weather,
+        col = "skyblue",
+        main = "Temp_min by Weather",
+        xlab = "Weather type",
+        ylab = "Minimum Temperature (°C)")
+
+boxplot(wind ~ weather,
+        data = weather,
+        col = "lightgreen",
+        main = "Wind speed by Weather",
+        xlab = "Weather type",
+        ylab = "Wind speed")
+
+boxplot(precipitation ~ weather,
+        data = weather,
+        col = "plum",
+        main = "Precipitation by Weather",
+        xlab = "Weather type",
+        ylab = "Precipitation (mm)")
+
+par(mfrow=c(1,1))  # 画完恢复默认布局
+```
+```{r}
+library(ggplot2)
+
+features <- c("temp_max","temp_min","wind","precipitation")
+
+for(f in features){
+  p <- ggplot(weather, aes(x=weather, y=.data[[f]], fill=weather)) +
+    geom_boxplot(alpha=0.7, outlier.alpha=0.3) +
+    theme_minimal(base_size=13) +
+    theme(legend.position="none",
+          plot.title = element_text(face="bold")) +
+    labs(title=paste(f,"by Weather"),
+         x="Weather type",
+         y=f)
+  print(p)
+}
+```
